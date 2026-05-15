@@ -1,0 +1,24 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  html {
+    scroll-behavior: smooth;
+  }
+  body {
+    @apply bg-slate-50 text-slate-900 antialiased;
+  }
+}
+
+@layer components {
+  .btn-primary {
+    @apply inline-flex items-center justify-center rounded-lg bg-marine-600 px-5 py-3 text-sm font-semibold text-white shadow-sm transition hover:bg-marine-700 focus:outline-none focus:ring-2 focus:ring-marine-500 focus:ring-offset-2;
+  }
+  .btn-secondary {
+    @apply inline-flex items-center justify-center rounded-lg border border-slate-300 bg-white px-5 py-3 text-sm font-semibold text-slate-700 shadow-sm transition hover:bg-slate-50;
+  }
+  .card {
+    @apply rounded-xl border border-slate-200 bg-white p-6 shadow-sm;
+  }
+}
