@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { FranceConnectButton } from "@/components/FranceConnectButton";
 
 type SituationFamiliale = "celibataire" | "couple" | "famille";
 type Logement = "locataire" | "proprietaire" | "heberge";
@@ -38,12 +39,33 @@ export default function ProfilPage() {
   const [etape, setEtape] = useState(1);
   const totalEtapes = 3;
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const [erreur, setErreur] = useState<string | null>(null);
+  const [envoi, setEnvoi] = useState(false);
+
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (typeof window !== "undefined") {
-      window.localStorage.setItem("adminsimpl:profil", JSON.stringify(profil));
+    setErreur(null);
+    setEnvoi(true);
+    try {
+      const res = await fetch("/api/profil", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(profil),
+      });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        throw new Error(data.error ?? "Échec de l'enregistrement");
+      }
+      if (typeof window !== "undefined") {
+        window.localStorage.setItem("adminsimpl:email", profil.email);
+        window.localStorage.setItem("adminsimpl:prenom", profil.prenom);
+      }
+      router.push(`/tableau-de-bord?email=${encodeURIComponent(profil.email)}`);
+    } catch (err) {
+      setErreur(err instanceof Error ? err.message : "Erreur inconnue");
+    } finally {
+      setEnvoi(false);
     }
-    router.push("/tableau-de-bord");
   };
 
   const update = <K extends keyof Profil>(cle: K, valeur: Profil[K]) => {
@@ -60,6 +82,12 @@ export default function ProfilPage() {
         <p className="mt-2 text-slate-600">
           Ces informations restent chiffrées et ne servent qu'à pré-remplir vos démarches.
         </p>
+        <div className="mt-6 rounded-lg border border-marine-100 bg-marine-50 p-4">
+          <p className="text-sm text-marine-900">
+            Gagnez du temps : importez votre identité officielle via FranceConnect.
+          </p>
+          <FranceConnectButton className="mt-3" />
+        </div>
         <div className="mt-6 h-2 w-full overflow-hidden rounded-full bg-slate-200">
           <div
             className="h-full bg-marine-600 transition-all"
@@ -184,11 +212,16 @@ export default function ProfilPage() {
               Suivant
             </button>
           ) : (
-            <button type="submit" className="btn-primary">
-              Lancer l'analyse de mes droits
+            <button type="submit" disabled={envoi} className="btn-primary disabled:opacity-50">
+              {envoi ? "Enregistrement…" : "Lancer l'analyse de mes droits"}
             </button>
           )}
         </div>
+        {erreur && (
+          <p className="text-sm text-red-600" role="alert">
+            {erreur}
+          </p>
+        )}
       </form>
     </div>
   );

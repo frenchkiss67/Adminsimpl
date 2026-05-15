@@ -1,44 +1,107 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { Suspense, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { alertesMock, demarchesMock, labelStatut, type Demarche } from "@/lib/mockData";
+import { useSearchParams } from "next/navigation";
+import { alertesMock, labelStatut, type Demarche, type StatutDemarche } from "@/lib/mockData";
+import { PreRemplissageModal } from "@/components/PreRemplissageModal";
 
 type FiltreStatut = "tous" | Demarche["statut"];
 
-export default function TableauDeBordPage() {
-  const [filtre, setFiltre] = useState<FiltreStatut>("tous");
+type DemarcheApi = {
+  id: string;
+  titre: string;
+  organisme: string;
+  statut: StatutDemarche;
+  echeance: string;
+  montant_estime: number | null;
+  description: string;
+};
+
+function TableauContenu() {
+  const params = useSearchParams();
+  const [email, setEmail] = useState<string | null>(null);
   const [prenom, setPrenom] = useState<string | null>(null);
+  const [demarches, setDemarches] = useState<DemarcheApi[]>([]);
+  const [filtre, setFiltre] = useState<FiltreStatut>("tous");
+  const [chargement, setChargement] = useState(true);
+  const [erreur, setErreur] = useState<string | null>(null);
+  const [modaleOuverte, setModaleOuverte] = useState(false);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
-    const raw = window.localStorage.getItem("adminsimpl:profil");
-    if (raw) {
-      try {
-        const p = JSON.parse(raw) as { prenom?: string };
-        if (p.prenom) setPrenom(p.prenom);
-      } catch {
-        /* ignore */
-      }
+    const emailParam = params.get("email");
+    const emailStocke = window.localStorage.getItem("adminsimpl:email");
+    const e = emailParam ?? emailStocke;
+    if (e) {
+      setEmail(e);
+      window.localStorage.setItem("adminsimpl:email", e);
     }
-  }, []);
+    setPrenom(window.localStorage.getItem("adminsimpl:prenom"));
+  }, [params]);
+
+  useEffect(() => {
+    if (!email) {
+      setChargement(false);
+      return;
+    }
+    setChargement(true);
+    setErreur(null);
+    Promise.all([
+      fetch(`/api/profil?email=${encodeURIComponent(email)}`),
+      fetch(`/api/demarches?email=${encodeURIComponent(email)}`),
+    ])
+      .then(async ([rProfil, rDem]) => {
+        if (!rProfil.ok) throw new Error("Profil introuvable");
+        if (!rDem.ok) throw new Error("Démarches indisponibles");
+        const profil = (await rProfil.json()).profil;
+        const dem = (await rDem.json()).demarches;
+        if (profil.prenom) {
+          setPrenom(profil.prenom);
+          window.localStorage.setItem("adminsimpl:prenom", profil.prenom);
+        }
+        setDemarches(dem);
+      })
+      .catch((e) => setErreur(e instanceof Error ? e.message : "Erreur"))
+      .finally(() => setChargement(false));
+  }, [email]);
 
   const demarchesFiltrees = useMemo(() => {
-    if (filtre === "tous") return demarchesMock;
-    return demarchesMock.filter((d) => d.statut === filtre);
-  }, [filtre]);
+    if (filtre === "tous") return demarches;
+    return demarches.filter((d) => d.statut === filtre);
+  }, [demarches, filtre]);
 
   const stats = useMemo(() => {
-    const total = demarchesMock.length;
-    const enCours = demarchesMock.filter((d) =>
+    const total = demarches.length;
+    const enCours = demarches.filter((d) =>
       ["pre-remplie", "a-valider", "soumise", "nouvelle"].includes(d.statut),
     ).length;
-    const economies = demarchesMock.reduce((acc, d) => acc + (d.montantEstime ?? 0), 0);
+    const economies = demarches.reduce((acc, d) => acc + (d.montant_estime ?? 0), 0);
     return { total, enCours, economies };
-  }, []);
+  }, [demarches]);
+
+  if (!email) {
+    return (
+      <div className="mx-auto max-w-3xl px-6 py-16 text-center">
+        <h1 className="text-2xl font-bold text-marine-900">Aucun profil détecté</h1>
+        <p className="mt-3 text-slate-600">
+          Créez votre profil pour accéder à votre tableau de bord personnalisé.
+        </p>
+        <Link href="/profil" className="btn-primary mt-6 inline-flex">
+          Créer mon profil
+        </Link>
+      </div>
+    );
+  }
 
   return (
     <div className="mx-auto max-w-6xl px-6 py-12">
+      {params.get("fc") === "ok" && (
+        <div className="mb-6 rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-800">
+          ✓ Connexion FranceConnect réussie. Votre identité a été importée.
+        </div>
+      )}
+
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div>
           <h1 className="text-3xl font-bold text-marine-900">
@@ -48,18 +111,25 @@ export default function TableauDeBordPage() {
             Voici l'état de vos démarches et les aides détectées par notre IA.
           </p>
         </div>
-        <Link href="/profil" className="btn-secondary">
-          Modifier mon profil
-        </Link>
+        <div className="flex gap-2">
+          <button onClick={() => setModaleOuverte(true)} className="btn-primary">
+            Pré-remplir un Cerfa
+          </button>
+          <Link href="/profil" className="btn-secondary">
+            Modifier mon profil
+          </Link>
+        </div>
       </div>
+
+      {erreur && (
+        <div className="mt-6 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+          {erreur}
+        </div>
+      )}
 
       <div className="mt-8 grid gap-4 md:grid-cols-3">
         <StatCard label="Démarches actives" valeur={String(stats.enCours)} sousTexte={`sur ${stats.total} dossiers`} />
-        <StatCard
-          label="Montant estimé annuel"
-          valeur={`${stats.economies} €`}
-          sousTexte="aides cumulables"
-        />
+        <StatCard label="Montant estimé annuel" valeur={`${stats.economies} €`} sousTexte="aides cumulables" />
         <StatCard label="Alertes nouvelles" valeur={String(alertesMock.length)} sousTexte="à traiter" />
       </div>
 
@@ -85,7 +155,9 @@ export default function TableauDeBordPage() {
           </div>
 
           <div className="mt-4 space-y-3">
-            {demarchesFiltrees.length === 0 ? (
+            {chargement ? (
+              <p className="card text-sm text-slate-500">Chargement…</p>
+            ) : demarchesFiltrees.length === 0 ? (
               <p className="card text-sm text-slate-500">Aucune démarche dans cette catégorie.</p>
             ) : (
               demarchesFiltrees.map((d) => <DemarcheCard key={d.id} demarche={d} />)
@@ -104,14 +176,23 @@ export default function TableauDeBordPage() {
                 </span>
               </div>
               <p className="mt-2 text-sm text-slate-600">{a.message}</p>
-              <button className="mt-3 text-xs font-semibold text-marine-600 hover:text-marine-700">
-                Voir le détail →
-              </button>
             </div>
           ))}
         </aside>
       </div>
+
+      {modaleOuverte && email && (
+        <PreRemplissageModal email={email} onClose={() => setModaleOuverte(false)} />
+      )}
     </div>
+  );
+}
+
+export default function TableauDeBordPage() {
+  return (
+    <Suspense fallback={<div className="mx-auto max-w-6xl px-6 py-12">Chargement…</div>}>
+      <TableauContenu />
+    </Suspense>
   );
 }
 
@@ -133,7 +214,7 @@ function StatCard({
   );
 }
 
-function DemarcheCard({ demarche }: { demarche: Demarche }) {
+function DemarcheCard({ demarche }: { demarche: DemarcheApi }) {
   const statut = labelStatut[demarche.statut];
   return (
     <article className="card">
@@ -154,15 +235,11 @@ function DemarcheCard({ demarche }: { demarche: Demarche }) {
             {new Date(demarche.echeance).toLocaleDateString("fr-FR")}
           </strong>
         </span>
-        {demarche.montantEstime ? (
+        {demarche.montant_estime ? (
           <span className="rounded-full bg-emerald-50 px-2 py-1 text-emerald-700">
-            ≈ {demarche.montantEstime} €
+            ≈ {demarche.montant_estime} €
           </span>
         ) : null}
-      </div>
-      <div className="mt-4 flex gap-2">
-        <button className="btn-primary text-xs">Ouvrir la démarche</button>
-        <button className="btn-secondary text-xs">Voir le formulaire pré-rempli</button>
       </div>
     </article>
   );

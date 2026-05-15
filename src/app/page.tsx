@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { FranceConnectButton } from "@/components/FranceConnectButton";
 
 const fonctionnalites = [
   {
@@ -79,10 +80,13 @@ export default function HomePage() {
               <Link href="/profil" className="btn-primary">
                 Créer mon profil gratuit
               </Link>
-              <Link href="#fonctionnalites" className="btn-secondary">
-                Voir les fonctionnalités
-              </Link>
+              <FranceConnectButton />
             </div>
+            <p className="mt-3 text-xs text-slate-500">
+              <Link href="#fonctionnalites" className="hover:text-marine-600">
+                Voir les fonctionnalités →
+              </Link>
+            </p>
             <p className="mt-6 text-xs text-slate-500">
               Données chiffrées de bout en bout · Hébergement en France · Conforme RGPD
             </p>
