@@ -2,14 +2,21 @@ import Database from "better-sqlite3";
 import path from "path";
 import fs from "fs";
 
-const DATA_DIR = path.join(process.cwd(), ".data");
-if (!fs.existsSync(DATA_DIR)) fs.mkdirSync(DATA_DIR, { recursive: true });
+let _db: Database.Database | null = null;
 
-const db = new Database(path.join(DATA_DIR, "adminsimpl.db"));
-db.pragma("journal_mode = WAL");
-db.pragma("foreign_keys = ON");
+function db(): Database.Database {
+  if (_db) return _db;
+  const dataDir = path.join(process.cwd(), ".data");
+  if (!fs.existsSync(dataDir)) fs.mkdirSync(dataDir, { recursive: true });
+  const handle = new Database(path.join(dataDir, "adminsimpl.db"));
+  handle.pragma("journal_mode = WAL");
+  handle.pragma("foreign_keys = ON");
+  handle.exec(SCHEMA);
+  _db = handle;
+  return handle;
+}
 
-db.exec(`
+const SCHEMA = `
   CREATE TABLE IF NOT EXISTS profils (
     id TEXT PRIMARY KEY,
     prenom TEXT NOT NULL,
@@ -21,7 +28,6 @@ db.exec(`
     revenus_annuels INTEGER NOT NULL DEFAULT 0,
     logement TEXT NOT NULL,
     code_postal TEXT NOT NULL,
-    franceconnect_sub TEXT,
     created_at TEXT NOT NULL DEFAULT (datetime('now')),
     updated_at TEXT NOT NULL DEFAULT (datetime('now'))
   );
@@ -40,7 +46,7 @@ db.exec(`
   );
 
   CREATE INDEX IF NOT EXISTS idx_demarches_profil ON demarches(profil_id);
-`);
+`;
 
 export type Profil = {
   id: string;
@@ -53,7 +59,6 @@ export type Profil = {
   revenus_annuels: number;
   logement: "locataire" | "proprietaire" | "heberge";
   code_postal: string;
-  franceconnect_sub: string | null;
   created_at: string;
   updated_at: string;
 };
@@ -72,17 +77,17 @@ export type DemarcheRow = {
 };
 
 export function getProfilByEmail(email: string): Profil | undefined {
-  return db.prepare("SELECT * FROM profils WHERE email = ?").get(email) as Profil | undefined;
+  return db().prepare("SELECT * FROM profils WHERE email = ?").get(email) as Profil | undefined;
 }
 
 export function getProfilById(id: string): Profil | undefined {
-  return db.prepare("SELECT * FROM profils WHERE id = ?").get(id) as Profil | undefined;
+  return db().prepare("SELECT * FROM profils WHERE id = ?").get(id) as Profil | undefined;
 }
 
 export function upsertProfil(p: Omit<Profil, "created_at" | "updated_at">): Profil {
-  db.prepare(
-    `INSERT INTO profils (id, prenom, nom, email, numero_fiscal, situation, nombre_enfants, revenus_annuels, logement, code_postal, franceconnect_sub)
-     VALUES (@id, @prenom, @nom, @email, @numero_fiscal, @situation, @nombre_enfants, @revenus_annuels, @logement, @code_postal, @franceconnect_sub)
+  db().prepare(
+    `INSERT INTO profils (id, prenom, nom, email, numero_fiscal, situation, nombre_enfants, revenus_annuels, logement, code_postal)
+     VALUES (@id, @prenom, @nom, @email, @numero_fiscal, @situation, @nombre_enfants, @revenus_annuels, @logement, @code_postal)
      ON CONFLICT(email) DO UPDATE SET
        prenom = excluded.prenom,
        nom = excluded.nom,
@@ -92,27 +97,27 @@ export function upsertProfil(p: Omit<Profil, "created_at" | "updated_at">): Prof
        revenus_annuels = excluded.revenus_annuels,
        logement = excluded.logement,
        code_postal = excluded.code_postal,
-       franceconnect_sub = COALESCE(excluded.franceconnect_sub, profils.franceconnect_sub),
        updated_at = datetime('now')`,
   ).run(p);
   return getProfilByEmail(p.email)!;
 }
 
 export function listDemarches(profilId: string): DemarcheRow[] {
-  return db
+  return db()
     .prepare("SELECT * FROM demarches WHERE profil_id = ? ORDER BY echeance ASC")
     .all(profilId) as DemarcheRow[];
 }
 
 export function seedDemarchesFor(profilId: string) {
+  const handle = db();
   const count = (
-    db.prepare("SELECT COUNT(*) AS n FROM demarches WHERE profil_id = ?").get(profilId) as {
+    handle.prepare("SELECT COUNT(*) AS n FROM demarches WHERE profil_id = ?").get(profilId) as {
       n: number;
     }
   ).n;
   if (count > 0) return;
 
-  const insert = db.prepare(
+  const insert = handle.prepare(
     `INSERT INTO demarches (id, profil_id, titre, organisme, statut, echeance, montant_estime, description)
      VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
   );
@@ -152,7 +157,7 @@ export function seedDemarchesFor(profilId: string) {
       "Dossier transmis. Premier versement attendu sous 21 jours.",
     ],
   ];
-  const insertAll = db.transaction(() => {
+  const insertAll = handle.transaction(() => {
     rows.forEach((r, idx) =>
       insert.run(`dem-${profilId.slice(0, 6)}-${idx}`, profilId, ...r),
     );

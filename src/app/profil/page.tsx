@@ -2,7 +2,6 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { FranceConnectButton } from "@/components/FranceConnectButton";
 
 type SituationFamiliale = "celibataire" | "couple" | "famille";
 type Logement = "locataire" | "proprietaire" | "heberge";
@@ -82,12 +81,6 @@ export default function ProfilPage() {
         <p className="mt-2 text-slate-600">
           Ces informations restent chiffrées et ne servent qu'à pré-remplir vos démarches.
         </p>
-        <div className="mt-6 rounded-lg border border-marine-100 bg-marine-50 p-4">
-          <p className="text-sm text-marine-900">
-            Gagnez du temps : importez votre identité officielle via FranceConnect.
-          </p>
-          <FranceConnectButton className="mt-3" />
-        </div>
         <div className="mt-6 h-2 w-full overflow-hidden rounded-full bg-slate-200">
           <div
             className="h-full bg-marine-600 transition-all"

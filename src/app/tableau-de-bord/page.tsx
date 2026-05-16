@@ -96,12 +96,6 @@ function TableauContenu() {
 
   return (
     <div className="mx-auto max-w-6xl px-6 py-12">
-      {params.get("fc") === "ok" && (
-        <div className="mb-6 rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-800">
-          ✓ Connexion FranceConnect réussie. Votre identité a été importée.
-        </div>
-      )}
-
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div>
           <h1 className="text-3xl font-bold text-marine-900">

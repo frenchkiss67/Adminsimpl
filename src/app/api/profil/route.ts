@@ -15,7 +15,6 @@ const ProfilSchema = z.object({
   revenusAnnuels: z.number().int().min(0).max(10_000_000),
   logement: z.enum(["locataire", "proprietaire", "heberge"]),
   codePostal: z.string().regex(/^\d{5}$/),
-  franceconnectSub: z.string().optional(),
 });
 
 export async function GET(req: NextRequest) {
@@ -56,7 +55,6 @@ export async function POST(req: NextRequest) {
     revenus_annuels: v.revenusAnnuels,
     logement: v.logement,
     code_postal: v.codePostal,
-    franceconnect_sub: v.franceconnectSub ?? null,
   });
 
   seedDemarchesFor(profil.id);

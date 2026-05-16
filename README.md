@@ -5,7 +5,6 @@
 ## Fonctionnalités
 
 - **Pré-remplissage Cerfa par IA** — un agent Claude analyse votre profil et complète les champs des formulaires officiels (prime d'activité, déclaration de revenus…) avec un score de confiance par champ.
-- **Connexion FranceConnect** (mock OIDC simulé) — importez votre identité officielle pour ne rien ressaisir.
 - **Suivi unifié** — toutes vos démarches dans un tableau de bord, avec filtres par statut et alertes proactives.
 - **Persistance SQLite** — profils et démarches stockés localement.
 
@@ -33,20 +32,17 @@ Ouvrir [http://localhost:3000](http://localhost:3000).
 src/
   app/
     page.tsx                              # Landing
-    profil/page.tsx                       # Formulaire 3 étapes (avec bouton FranceConnect)
+    profil/page.tsx                       # Formulaire 3 étapes
     tableau-de-bord/page.tsx              # Dashboard (consomme les API)
-    franceconnect/page.tsx                # Mock IdP — sélection d'identité simulée
     api/
       profil/route.ts                     # POST + GET profil
       demarches/route.ts                  # GET démarches d'un profil
       parse-form/route.ts                 # POST → agent Claude pré-remplit un Cerfa
-      franceconnect/callback/route.ts     # OIDC callback simulé
   components/
     Header.tsx, Footer.tsx
-    FranceConnectButton.tsx               # Bouton officiel-like
     PreRemplissageModal.tsx               # Modale d'invocation de l'agent
   lib/
-    db.ts                                 # Schéma SQLite + helpers
+    db.ts                                 # Schéma SQLite + helpers (init paresseuse)
     cerfa.ts                              # Catalogue de formulaires Cerfa supportés
     mockData.ts                           # Alertes et labels de statut (UI)
 ```
@@ -67,4 +63,4 @@ Si `ANTHROPIC_API_KEY` n'est pas défini, un fallback déterministe produit la m
 
 ## Statut
 
-MVP fonctionnel — frontend + API + DB + agent IA + auth simulée. Prochaines étapes envisageables : vraie intégration FranceConnect (OIDC officiel), parsing de PDF Cerfa réels (Files API + vision), soumission RPA sur portails publics.
+MVP fonctionnel — frontend + API + DB + agent IA. L'application fonctionne entièrement sur la base d'un email comme identifiant utilisateur. Prochaines étapes envisageables : parsing de PDF Cerfa réels (Files API + vision), soumission RPA sur portails publics, authentification utilisateur (email + mot de passe ou OAuth).
