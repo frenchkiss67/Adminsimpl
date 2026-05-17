@@ -1,12 +1,24 @@
 # AdminSimpl
 
-**Assistant d'automatisation des démarches administratives** — Application bureau Windows qui pré-remplit vos formulaires Cerfa, suit vos dossiers (impôts, CAF, aides locales) et vous alerte sur les aides disponibles.
+**Assistant d'automatisation des démarches administratives** — Application bureau Windows 100 % hors-ligne qui pré-remplit vos formulaires Cerfa, suit vos dossiers (impôts, CAF, aides locales) et vous alerte sur les aides disponibles.
 
 ## Fonctionnalités
 
-- **Pré-remplissage Cerfa par IA** — un agent Claude analyse votre profil et complète les champs des formulaires officiels avec un score de confiance par champ.
+- **Pré-remplissage Cerfa** — vos informations de profil sont mappées automatiquement vers les champs des formulaires officiels (prime d'activité, déclaration de revenus…) avec un score de confiance par champ.
 - **Suivi unifié** — toutes vos démarches dans un tableau de bord avec filtres par statut et alertes proactives.
-- **Stockage local** — vos données restent sur votre machine (SQLite).
+- **100 % hors-ligne** — aucune connexion réseau sortante. Vos données ne quittent jamais votre machine.
+
+## Garantie hors-ligne — comment c'est verrouillé
+
+| Couche | Mécanisme |
+|---|---|
+| Code applicatif | Aucune dépendance vers une API externe (le SDK Anthropic a été retiré). |
+| Télémétrie Next.js | `NEXT_TELEMETRY_DISABLED=1` défini par le process Electron avant le spawn du serveur. |
+| Renderer Chromium | CSP stricte `connect-src 'self'` + `default-src 'self'` injectée par Electron sur toutes les réponses. |
+| Session Electron | `webRequest.onBeforeRequest` annule toute requête dont le host n'est pas `127.0.0.1` / `localhost` / `::1`. |
+| Auto-updater | Non configuré, pas de check au démarrage. |
+
+Pour auditer en live : ouvrir DevTools (Ctrl+Maj+I) → onglet Network → toutes les requêtes pointent sur `127.0.0.1:<port>`. Toute tentative externe apparaît `(blocked)` et est loggée dans la console.
 
 ## Stack
 
@@ -14,7 +26,6 @@
 - [Next.js 14](https://nextjs.org/) (App Router, mode `standalone`) + TypeScript
 - [Tailwind CSS](https://tailwindcss.com/)
 - [SQLite via better-sqlite3](https://github.com/WiseLibs/better-sqlite3) — module natif recompilé pour Electron
-- [@anthropic-ai/sdk](https://github.com/anthropics/anthropic-sdk-typescript) — agent `claude-opus-4-7` avec adaptive thinking et structured outputs
 
 ## Construire l'installeur Windows (.exe)
 
@@ -36,8 +47,6 @@ npm install --global windows-build-tools
 (ou installer Visual Studio Build Tools manuellement avec le workload "Desktop development with C++" + Python 3 dans le PATH).
 
 **Note 2 — icône :** par défaut, l'app utilise l'icône Electron. Pour personnaliser, placer un `icon.ico` (256×256) dans `build-resources/`.
-
-**Note 3 — agent IA :** sans variable `ANTHROPIC_API_KEY` définie, le pré-remplissage Cerfa fonctionne en mode fallback déterministe (utile pour démo offline). Avec la clé, l'agent Claude est appelé.
 
 ## Développer
 
@@ -91,5 +100,6 @@ next.config.mjs                # output: 'standalone' pour packaging Electron
 3. Electron spawn `server.js` (Next.js standalone) sur un port libre local en passant `ADMINSIMPL_DATA_DIR` en variable d'environnement.
 4. Une fois le serveur prêt, Electron ouvre une `BrowserWindow` sur `http://127.0.0.1:<port>/`.
 5. Les API routes Next.js tournent dans ce process Node, et `db.ts` utilise le chemin fourni par Electron.
+6. Le pré-remplissage Cerfa applique des règles déterministes (mapping profil → champs Cerfa, calcul des parts fiscales, conversion revenus annuels → trimestriels).
 
-Tout est local : aucune connexion sortante sauf vers l'API Claude (si activée).
+Tout est local : zéro connexion sortante, zéro télémétrie.

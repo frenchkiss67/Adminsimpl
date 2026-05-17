@@ -29,4 +29,16 @@ function copyDir(from, to) {
 copyDir(staticSrc, path.join(standaloneDir, ".next", "static"));
 copyDir(publicSrc, path.join(standaloneDir, "public"));
 
+// Next.js standalone trace skips native .node binaries. Copy better-sqlite3's
+// build artifacts explicitly so the bundle can load it at runtime.
+const nativeSrc = path.join(root, "node_modules", "better-sqlite3", "build");
+const nativeDst = path.join(standaloneDir, "node_modules", "better-sqlite3", "build");
+if (!fs.existsSync(nativeSrc)) {
+  console.error(
+    "Missing node_modules/better-sqlite3/build — run `npm install` (or `electron-builder install-app-deps`) first.",
+  );
+  process.exit(1);
+}
+copyDir(nativeSrc, nativeDst);
+
 console.log("Electron prep done — .next/standalone is self-contained.");

@@ -1,16 +1,61 @@
 "use strict";
 
-const { app, BrowserWindow, shell } = require("electron");
+const { app, BrowserWindow, session, shell } = require("electron");
 const path = require("node:path");
 const fs = require("node:fs");
 const http = require("node:http");
 const net = require("node:net");
 const { spawn } = require("node:child_process");
 
+process.env.NEXT_TELEMETRY_DISABLED = "1";
+
 const isDev = !app.isPackaged;
 
 let mainWindow = null;
 let nextProcess = null;
+
+function isLoopbackUrl(url) {
+  try {
+    const { hostname, protocol } = new URL(url);
+    if (protocol === "devtools:" || protocol === "chrome-extension:") return true;
+    return hostname === "127.0.0.1" || hostname === "localhost" || hostname === "::1";
+  } catch {
+    return false;
+  }
+}
+
+function lockdownNetwork() {
+  const ses = session.defaultSession;
+
+  ses.webRequest.onBeforeRequest((details, callback) => {
+    if (isLoopbackUrl(details.url)) callback({ cancel: false });
+    else {
+      console.warn(`[offline] blocked outbound request: ${details.url}`);
+      callback({ cancel: true });
+    }
+  });
+
+  ses.webRequest.onHeadersReceived((details, callback) => {
+    callback({
+      responseHeaders: {
+        ...details.responseHeaders,
+        "Content-Security-Policy": [
+          [
+            "default-src 'self'",
+            "script-src 'self' 'unsafe-inline'",
+            "style-src 'self' 'unsafe-inline'",
+            "img-src 'self' data:",
+            "font-src 'self' data:",
+            "connect-src 'self'",
+            "object-src 'none'",
+            "base-uri 'self'",
+            "frame-ancestors 'none'",
+          ].join("; "),
+        ],
+      },
+    });
+  });
+}
 
 async function findFreePort() {
   return await new Promise((resolve, reject) => {
@@ -105,6 +150,7 @@ function createWindow(targetUrl) {
 
 app.whenReady().then(async () => {
   try {
+    lockdownNetwork();
     const port = isDev ? 3000 : await startEmbeddedNext();
     if (isDev) await waitForServer(`http://127.0.0.1:${port}/`);
     createWindow(`http://127.0.0.1:${port}/`);

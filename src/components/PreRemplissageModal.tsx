@@ -13,7 +13,6 @@ type Reponse = {
   cerfa: { reference: string; titre: string; organisme: string };
   champs: ChampRempli[];
   alertes: string[];
-  mode: "claude" | "fallback";
 };
 
 const COULEUR_CONFIANCE: Record<ChampRempli["confiance"], string> = {
@@ -61,7 +60,7 @@ export function PreRemplissageModal({
           <div>
             <h2 className="text-lg font-bold text-marine-900">Pré-remplissage Cerfa</h2>
             <p className="mt-1 text-sm text-slate-600">
-              Notre agent IA analyse votre profil et complète les champs du formulaire.
+              AdminSimpl utilise les informations de votre profil pour pré-remplir le formulaire.
             </p>
           </div>
           <button onClick={onClose} className="text-slate-400 hover:text-slate-600" aria-label="Fermer">
@@ -98,14 +97,8 @@ export function PreRemplissageModal({
                 <p className="text-sm font-semibold text-marine-900">
                   {reponse.cerfa.reference} — {reponse.cerfa.titre}
                 </p>
-                <span
-                  className={`rounded-full px-2 py-0.5 text-xs ${
-                    reponse.mode === "claude"
-                      ? "bg-marine-100 text-marine-700"
-                      : "bg-slate-200 text-slate-600"
-                  }`}
-                >
-                  {reponse.mode === "claude" ? "Agent Claude" : "Mode démo"}
+                <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-xs text-emerald-700">
+                  Hors-ligne · 100 % local
                 </span>
               </div>
 

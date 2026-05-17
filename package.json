@@ -17,7 +17,6 @@
     "electron:build:linux": "npm run electron:prepare && electron-builder --linux --x64"
   },
   "dependencies": {
-    "@anthropic-ai/sdk": "^0.96.0",
     "better-sqlite3": "^11.10.0",
     "next": "14.2.5",
     "react": "18.3.1",
@@ -59,14 +58,18 @@
       {
         "from": ".next/standalone",
         "to": "app",
-        "filter": ["**/*"]
+        "filter": [
+          "**/*"
+        ]
       }
     ],
     "win": {
       "target": [
         {
           "target": "nsis",
-          "arch": ["x64"]
+          "arch": [
+            "x64"
+          ]
         }
       ],
       "artifactName": "${productName}-Setup-${version}.${ext}"
@@ -80,7 +83,9 @@
       "shortcutName": "AdminSimpl"
     },
     "linux": {
-      "target": ["AppImage"],
+      "target": [
+        "AppImage"
+      ],
       "category": "Office"
     }
   }
