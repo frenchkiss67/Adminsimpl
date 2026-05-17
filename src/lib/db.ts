@@ -6,7 +6,7 @@ let _db: Database.Database | null = null;
 
 function db(): Database.Database {
   if (_db) return _db;
-  const dataDir = path.join(process.cwd(), ".data");
+  const dataDir = process.env.ADMINSIMPL_DATA_DIR ?? path.join(process.cwd(), ".data");
   if (!fs.existsSync(dataDir)) fs.mkdirSync(dataDir, { recursive: true });
   const handle = new Database(path.join(dataDir, "adminsimpl.db"));
   handle.pragma("journal_mode = WAL");

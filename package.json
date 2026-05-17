@@ -2,11 +2,19 @@
   "name": "adminsimpl",
   "version": "0.1.0",
   "private": true,
+  "description": "Assistant d'automatisation des démarches administratives",
+  "author": "AdminSimpl",
+  "main": "electron/main.cjs",
   "scripts": {
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "next lint"
+    "lint": "next lint",
+    "postinstall": "electron-builder install-app-deps",
+    "electron:prepare": "next build && node scripts/prepare-electron.cjs",
+    "electron:dev": "concurrently -k -n next,electron -c blue,magenta \"npm:dev\" \"wait-on http://127.0.0.1:3000 && electron .\"",
+    "electron:build:win": "npm run electron:prepare && electron-builder --win --x64",
+    "electron:build:linux": "npm run electron:prepare && electron-builder --linux --x64"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.96.0",
@@ -22,10 +30,58 @@
     "@types/react": "18.3.3",
     "@types/react-dom": "18.3.0",
     "autoprefixer": "10.4.19",
+    "concurrently": "^9.2.1",
+    "electron": "^42.1.0",
+    "electron-builder": "^26.8.1",
     "eslint": "8.57.0",
     "eslint-config-next": "14.2.5",
     "postcss": "8.4.39",
     "tailwindcss": "3.4.6",
-    "typescript": "5.5.3"
+    "typescript": "5.5.3",
+    "wait-on": "^9.0.10"
+  },
+  "build": {
+    "appId": "com.adminsimpl.app",
+    "productName": "AdminSimpl",
+    "asar": true,
+    "asarUnpack": [
+      "**/node_modules/better-sqlite3/**/*"
+    ],
+    "directories": {
+      "output": "dist-electron",
+      "buildResources": "build-resources"
+    },
+    "files": [
+      "electron/**/*",
+      "package.json"
+    ],
+    "extraResources": [
+      {
+        "from": ".next/standalone",
+        "to": "app",
+        "filter": ["**/*"]
+      }
+    ],
+    "win": {
+      "target": [
+        {
+          "target": "nsis",
+          "arch": ["x64"]
+        }
+      ],
+      "artifactName": "${productName}-Setup-${version}.${ext}"
+    },
+    "nsis": {
+      "oneClick": false,
+      "perMachine": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "AdminSimpl"
+    },
+    "linux": {
+      "target": ["AppImage"],
+      "category": "Office"
+    }
   }
 }
