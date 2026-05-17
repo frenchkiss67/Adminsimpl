@@ -46,7 +46,7 @@ npm install --global windows-build-tools
 ```
 (ou installer Visual Studio Build Tools manuellement avec le workload "Desktop development with C++" + Python 3 dans le PATH).
 
-**Note 2 — icône :** par défaut, l'app utilise l'icône Electron. Pour personnaliser, placer un `icon.ico` (256×256) dans `build-resources/`.
+**Note 2 — icône :** l'icône d'app est versionnée dans `build-resources/icon.{svg,ico,png}` (carré marine arrondi + "A" blanc + pastille orange). Pour la personnaliser, éditer `build-resources/icon.svg` puis lancer `npm run icon` — ça régénère `icon.png` et `icon.ico` avec les 7 tailles attendues par Windows (16/24/32/48/64/128/256).
 
 ## Développer
 

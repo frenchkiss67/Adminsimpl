@@ -8,3 +8,4 @@ next-env.d.ts
 .vercel
 .data/
 dist-electron/
+build-resources/icon-*.png

@@ -122,6 +122,19 @@ async function startEmbeddedNext() {
   return port;
 }
 
+function resolveIcon() {
+  const candidates = isDev
+    ? [path.join(__dirname, "..", "build-resources", "icon.png")]
+    : [
+        path.join(process.resourcesPath, "icon.png"),
+        path.join(__dirname, "..", "build-resources", "icon.png"),
+      ];
+  for (const p of candidates) {
+    if (fs.existsSync(p)) return p;
+  }
+  return undefined;
+}
+
 function createWindow(targetUrl) {
   mainWindow = new BrowserWindow({
     width: 1280,
@@ -131,6 +144,7 @@ function createWindow(targetUrl) {
     backgroundColor: "#f8fafc",
     autoHideMenuBar: true,
     title: "AdminSimpl",
+    icon: resolveIcon(),
     webPreferences: {
       contextIsolation: true,
       nodeIntegration: false,

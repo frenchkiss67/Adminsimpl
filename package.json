@@ -11,6 +11,7 @@
     "start": "next start",
     "lint": "next lint",
     "postinstall": "electron-builder install-app-deps",
+    "icon": "node scripts/build-icon.cjs",
     "electron:prepare": "next build && node scripts/prepare-electron.cjs",
     "electron:dev": "concurrently -k -n next,electron -c blue,magenta \"npm:dev\" \"wait-on http://127.0.0.1:3000 && electron .\"",
     "electron:build:win": "npm run electron:prepare && electron-builder --win --x64",
@@ -34,7 +35,9 @@
     "electron-builder": "^26.8.1",
     "eslint": "8.57.0",
     "eslint-config-next": "14.2.5",
+    "png-to-ico": "^3.0.1",
     "postcss": "8.4.39",
+    "sharp": "^0.34.5",
     "tailwindcss": "3.4.6",
     "typescript": "5.5.3",
     "wait-on": "^9.0.10"
@@ -61,6 +64,10 @@
         "filter": [
           "**/*"
         ]
+      },
+      {
+        "from": "build-resources/icon.png",
+        "to": "icon.png"
       }
     ],
     "win": {
@@ -72,6 +79,7 @@
           ]
         }
       ],
+      "icon": "build-resources/icon.ico",
       "artifactName": "${productName}-Setup-${version}.${ext}"
     },
     "nsis": {
@@ -80,7 +88,10 @@
       "allowToChangeInstallationDirectory": true,
       "createDesktopShortcut": true,
       "createStartMenuShortcut": true,
-      "shortcutName": "AdminSimpl"
+      "shortcutName": "AdminSimpl",
+      "installerIcon": "build-resources/icon.ico",
+      "uninstallerIcon": "build-resources/icon.ico",
+      "installerHeaderIcon": "build-resources/icon.ico"
     },
     "linux": {
       "target": [
