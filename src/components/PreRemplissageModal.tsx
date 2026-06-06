@@ -1,19 +1,7 @@
 "use client";
 
 import { useState } from "react";
-
-type ChampRempli = {
-  cle: string;
-  valeur: string;
-  confiance: "haute" | "moyenne" | "faible";
-  source: string;
-};
-
-type Reponse = {
-  cerfa: { reference: string; titre: string; organisme: string };
-  champs: ChampRempli[];
-  alertes: string[];
-};
+import type { ChampRempli, PreRemplissage } from "@/lib/preRemplissage";
 
 const COULEUR_CONFIANCE: Record<ChampRempli["confiance"], string> = {
   haute: "bg-emerald-50 text-emerald-700",
@@ -30,7 +18,7 @@ export function PreRemplissageModal({
 }) {
   const [cerfaRef, setCerfaRef] = useState("15481-04");
   const [chargement, setChargement] = useState(false);
-  const [reponse, setReponse] = useState<Reponse | null>(null);
+  const [reponse, setReponse] = useState<PreRemplissage | null>(null);
   const [erreur, setErreur] = useState<string | null>(null);
 
   const lancer = async () => {

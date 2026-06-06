@@ -12,13 +12,14 @@ const sizes = [16, 24, 32, 48, 64, 128, 256];
 
 async function main() {
   const svg = fs.readFileSync(svgPath);
-  const pngBuffers = [];
-  for (const size of sizes) {
-    const png = await sharp(svg).resize(size, size).png().toBuffer();
-    pngBuffers.push(png);
-    fs.writeFileSync(path.join(outDir, `icon-${size}.png`), png);
-  }
-  fs.writeFileSync(path.join(outDir, "icon.png"), pngBuffers[pngBuffers.length - 1]);
+  const base = sharp(svg);
+  const pngBuffers = await Promise.all(
+    sizes.map((size) => base.clone().resize(size, size).png().toBuffer()),
+  );
+  sizes.forEach((size, i) => {
+    fs.writeFileSync(path.join(outDir, `icon-${size}.png`), pngBuffers[i]);
+  });
+  fs.writeFileSync(path.join(outDir, "icon.png"), pngBuffers.at(-1));
   const ico = await pngToIco(pngBuffers);
   fs.writeFileSync(path.join(outDir, "icon.ico"), ico);
   console.log(`Wrote build-resources/icon.ico (${ico.length} bytes, ${sizes.length} sizes)`);

@@ -3,7 +3,6 @@
 const { app, BrowserWindow, session, shell } = require("electron");
 const path = require("node:path");
 const fs = require("node:fs");
-const http = require("node:http");
 const net = require("node:net");
 const { spawn } = require("node:child_process");
 
@@ -11,54 +10,52 @@ process.env.NEXT_TELEMETRY_DISABLED = "1";
 
 const isDev = !app.isPackaged;
 
+const CSP_HEADER = [
+  "default-src 'self'",
+  "script-src 'self' 'unsafe-inline'",
+  "style-src 'self' 'unsafe-inline'",
+  "img-src 'self' data:",
+  "font-src 'self' data:",
+  "connect-src 'self'",
+  "object-src 'none'",
+  "base-uri 'self'",
+  "frame-ancestors 'none'",
+].join("; ");
+
+const ICON_PATH = isDev
+  ? path.join(__dirname, "..", "build-resources", "icon.png")
+  : path.join(process.resourcesPath, "icon.png");
+
 let mainWindow = null;
 let nextProcess = null;
 
 function isLoopbackUrl(url) {
-  try {
-    const { hostname, protocol } = new URL(url);
-    if (protocol === "devtools:" || protocol === "chrome-extension:") return true;
-    return hostname === "127.0.0.1" || hostname === "localhost" || hostname === "::1";
-  } catch {
-    return false;
-  }
+  const { hostname, protocol } = new URL(url);
+  if (protocol === "devtools:" || protocol === "chrome-extension:") return true;
+  return hostname === "127.0.0.1" || hostname === "localhost" || hostname === "::1";
 }
 
 function lockdownNetwork() {
   const ses = session.defaultSession;
 
   ses.webRequest.onBeforeRequest((details, callback) => {
-    if (isLoopbackUrl(details.url)) callback({ cancel: false });
-    else {
-      console.warn(`[offline] blocked outbound request: ${details.url}`);
-      callback({ cancel: true });
-    }
+    const cancel = !isLoopbackUrl(details.url);
+    if (cancel) console.warn(`[offline] blocked outbound request: ${details.url}`);
+    callback({ cancel });
   });
 
   ses.webRequest.onHeadersReceived((details, callback) => {
     callback({
       responseHeaders: {
         ...details.responseHeaders,
-        "Content-Security-Policy": [
-          [
-            "default-src 'self'",
-            "script-src 'self' 'unsafe-inline'",
-            "style-src 'self' 'unsafe-inline'",
-            "img-src 'self' data:",
-            "font-src 'self' data:",
-            "connect-src 'self'",
-            "object-src 'none'",
-            "base-uri 'self'",
-            "frame-ancestors 'none'",
-          ].join("; "),
-        ],
+        "Content-Security-Policy": [CSP_HEADER],
       },
     });
   });
 }
 
-async function findFreePort() {
-  return await new Promise((resolve, reject) => {
+function findFreePort() {
+  return new Promise((resolve, reject) => {
     const srv = net.createServer();
     srv.unref();
     srv.on("error", reject);
@@ -69,30 +66,13 @@ async function findFreePort() {
   });
 }
 
-function waitForServer(url, timeoutMs = 30_000) {
-  const deadline = Date.now() + timeoutMs;
-  return new Promise((resolve, reject) => {
-    const check = () => {
-      const req = http.get(url, (res) => {
-        res.resume();
-        resolve();
-      });
-      req.on("error", () => {
-        if (Date.now() > deadline) reject(new Error(`timeout waiting for ${url}`));
-        else setTimeout(check, 200);
-      });
-      req.setTimeout(2000, () => req.destroy());
-    };
-    check();
-  });
-}
-
 async function startEmbeddedNext() {
+  // Next's standalone server treats PORT=0 as falsy and falls back to 3000,
+  // so we have to pre-allocate. There's a TOCTOU window between close() and
+  // Next's bind, but it's negligible on a single-user desktop.
   const port = await findFreePort();
-  const resourcesRoot = process.resourcesPath;
-  const standaloneDir = path.join(resourcesRoot, "app");
+  const standaloneDir = path.join(process.resourcesPath, "app");
   const serverEntry = path.join(standaloneDir, "server.js");
-
   const dataDir = path.join(app.getPath("userData"), "data");
   fs.mkdirSync(dataDir, { recursive: true });
 
@@ -109,30 +89,32 @@ async function startEmbeddedNext() {
     stdio: ["ignore", "pipe", "pipe"],
   });
 
-  nextProcess.stdout.on("data", (d) => process.stdout.write(`[next] ${d}`));
-  nextProcess.stderr.on("data", (d) => process.stderr.write(`[next] ${d}`));
-  nextProcess.on("exit", (code) => {
-    if (code !== 0 && code !== null) {
-      console.error(`Next.js server exited with code ${code}`);
-      app.quit();
-    }
+  // Wait for the "Local: http://127.0.0.1:<port>" line on stdout instead of
+  // polling HTTP — Next writes it once it's actually serving.
+  return new Promise((resolve, reject) => {
+    const ready = `http://127.0.0.1:${port}`;
+    const timer = setTimeout(
+      () => reject(new Error("Next.js server didn't become ready within 30s")),
+      30_000,
+    );
+
+    let resolved = false;
+    nextProcess.stdout.on("data", (d) => {
+      const text = d.toString();
+      process.stdout.write(`[next] ${text}`);
+      if (!resolved && text.includes(ready)) {
+        resolved = true;
+        clearTimeout(timer);
+        resolve(port);
+      }
+    });
+    nextProcess.stderr.on("data", (d) => process.stderr.write(`[next] ${d}`));
+    nextProcess.on("exit", (code) => {
+      if (resolved) return;
+      clearTimeout(timer);
+      reject(new Error(`Next.js server exited with code ${code} before becoming ready`));
+    });
   });
-
-  await waitForServer(`http://127.0.0.1:${port}/`);
-  return port;
-}
-
-function resolveIcon() {
-  const candidates = isDev
-    ? [path.join(__dirname, "..", "build-resources", "icon.png")]
-    : [
-        path.join(process.resourcesPath, "icon.png"),
-        path.join(__dirname, "..", "build-resources", "icon.png"),
-      ];
-  for (const p of candidates) {
-    if (fs.existsSync(p)) return p;
-  }
-  return undefined;
 }
 
 function createWindow(targetUrl) {
@@ -144,7 +126,7 @@ function createWindow(targetUrl) {
     backgroundColor: "#f8fafc",
     autoHideMenuBar: true,
     title: "AdminSimpl",
-    icon: resolveIcon(),
+    icon: ICON_PATH,
     webPreferences: {
       contextIsolation: true,
       nodeIntegration: false,
@@ -166,18 +148,11 @@ app.whenReady().then(async () => {
   try {
     lockdownNetwork();
     const port = isDev ? 3000 : await startEmbeddedNext();
-    if (isDev) await waitForServer(`http://127.0.0.1:${port}/`);
     createWindow(`http://127.0.0.1:${port}/`);
   } catch (err) {
     console.error("Failed to start AdminSimpl:", err);
     app.quit();
   }
-
-  app.on("activate", () => {
-    if (BrowserWindow.getAllWindows().length === 0 && mainWindow) {
-      mainWindow.show();
-    }
-  });
 });
 
 app.on("window-all-closed", () => {
