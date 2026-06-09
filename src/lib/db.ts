@@ -158,9 +158,7 @@ export function seedDemarchesFor(profilId: string) {
     ],
   ];
   const insertAll = handle.transaction(() => {
-    rows.forEach((r, idx) =>
-      insert.run(`dem-${profilId.slice(0, 6)}-${idx}`, profilId, ...r),
-    );
+    rows.forEach((r, idx) => insert.run(`dem-${profilId}-${idx}`, profilId, ...r));
   });
   insertAll();
 }

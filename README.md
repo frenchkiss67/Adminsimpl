@@ -40,11 +40,9 @@ npm run electron:build:win
 
 L'installeur NSIS apparaît dans `dist-electron\AdminSimpl-Setup-0.1.0.exe`. Double-clic pour installer.
 
-**Note 1 — outils de build :** `npm install` recompile `better-sqlite3` pour Electron via `node-gyp`. Si l'installation échoue, installer les outils de build :
-```cmd
-npm install --global windows-build-tools
-```
-(ou installer Visual Studio Build Tools manuellement avec le workload "Desktop development with C++" + Python 3 dans le PATH).
+**Note 1 — outils de build :** `npm run electron:build:win` recompile d'abord `better-sqlite3` pour l'ABI d'Electron (`electron:rebuild`). Si cette étape échoue, installer Visual Studio Build Tools (workload "Desktop development with C++") + Python 3 dans le PATH, puis relancer.
+
+**Note sur l'ABI native :** `better-sqlite3` est un module C++ compilé pour un runtime précis. Les scripts `electron:*` utilisent tous le Node embarqué d'Electron (y compris `electron:dev`, qui lance `next dev` via `ELECTRON_RUN_AS_NODE`), donc une seule compilation suffit pour tout le flux desktop. Si vous voulez ensuite revenir au mode web pur (`npm run dev` sur votre Node système), recompilez d'abord : `npm rebuild better-sqlite3`.
 
 **Note 2 — icône :** l'icône d'app est versionnée dans `build-resources/icon.{svg,ico,png}` (carré marine arrondi + "A" blanc + pastille orange). Pour la personnaliser, éditer `build-resources/icon.svg` puis lancer `npm run icon` — ça régénère `icon.png` et `icon.ico` avec les 7 tailles attendues par Windows (16/24/32/48/64/128/256).
 

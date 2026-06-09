@@ -12,7 +12,8 @@ const isDev = !app.isPackaged;
 
 const CSP_HEADER = [
   "default-src 'self'",
-  "script-src 'self' 'unsafe-inline'",
+  // next dev serves chunks through eval (eval-source-map); production doesn't.
+  isDev ? "script-src 'self' 'unsafe-inline' 'unsafe-eval'" : "script-src 'self' 'unsafe-inline'",
   "style-src 'self' 'unsafe-inline'",
   "img-src 'self' data:",
   "font-src 'self' data:",
@@ -110,7 +111,12 @@ async function startEmbeddedNext() {
     });
     nextProcess.stderr.on("data", (d) => process.stderr.write(`[next] ${d}`));
     nextProcess.on("exit", (code) => {
-      if (resolved) return;
+      if (resolved) {
+        // Server died mid-session — without it every navigation fails, so quit.
+        console.error(`Next.js server exited with code ${code}`);
+        app.quit();
+        return;
+      }
       clearTimeout(timer);
       reject(new Error(`Next.js server exited with code ${code} before becoming ready`));
     });

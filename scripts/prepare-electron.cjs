@@ -16,6 +16,9 @@ if (!fs.existsSync(standaloneDir)) {
 }
 
 fs.cpSync(staticSrc, path.join(standaloneDir, ".next", "static"), { recursive: true });
-fs.cpSync(publicSrc, path.join(standaloneDir, "public"), { recursive: true });
+// public/ is optional in Next — guard it (cpSync throws ENOENT, unlike the old copyDir)
+if (fs.existsSync(publicSrc)) {
+  fs.cpSync(publicSrc, path.join(standaloneDir, "public"), { recursive: true });
+}
 
 console.log("Electron prep done — .next/standalone is self-contained.");
